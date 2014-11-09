@@ -3,6 +3,7 @@ import os.path
 import json
 
 debts = dict()
+hist = []
 
 class Ticket:
 	def __init__(self, buyer, amount, people):
@@ -18,7 +19,6 @@ def loadDebts(file = "debts.json"):
 			debts = json.loads(f.read())
 
 def saveDebts(file = "debts.json"):
-	global debts
 	with open(file, "w+") as f:
 		f.write(json.dumps(debts))
 
@@ -42,14 +42,11 @@ def computeTicket(buyer, amount, people):
 					debts[person][buyer] -= debts[buyer][person]
 					debts[buyer][person] = 0
 
-def display():
-	global debts
+def showDebts():
 	for k, v in debts.items():
 		for l, u in v.items():
 			if (u):
 				print(k + " -> " + l + ": " + str(u))
-
-hist = []
 
 def loadHist(file="history.json"):
 	global hist
@@ -94,7 +91,7 @@ if __name__ == '__main__':
 		saveDebts()
 		saveHist()
 	elif args.command == "show":
-		display()
+		showDebts()
 	elif args.command == "hist":
 		showHist()
 	elif args.command == "del" and args.index:

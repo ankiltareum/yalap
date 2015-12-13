@@ -1,18 +1,11 @@
 #!/usr/bin/python3
 
-import argparse
+import argh
 import os.path
 import json
 
-debts = dict()
-hist = []
-
-class Ticket:
-	def __init__(self, buyer, amount, people):
-		self.buyer = buyer
-		self.amount = amount
-		self.people = people
-
+debts = {}
+history = []
 
 def loadDebts(file = "debts.json"):
 	global debts
@@ -21,8 +14,18 @@ def loadDebts(file = "debts.json"):
 			debts = json.loads(f.read())
 
 def saveDebts(file = "debts.json"):
-	with open(file, "w+") as f:
+	with open(file, "w") as f:
 		f.write(json.dumps(debts))
+
+def loadHist(file="history.json"):
+	global history
+	if (os.path.isfile(file)):
+		with open(file, "r") as f:
+			history = json.loads(f.read())
+
+def saveHist(file="history.json"):
+	with open(file, "w") as f:
+		f.write(json.dumps(history))
 
 def computeTicket(buyer, amount, people):
 	amountPerPerson = amount/(len(people))
@@ -44,64 +47,43 @@ def computeTicket(buyer, amount, people):
 					debts[person][buyer] -= debts[buyer][person]
 					debts[buyer][person] = 0
 
-def showDebts():
+def show():
 	for k, v in debts.items():
 		for l, u in v.items():
 			if (u):
 				print(k + " -> " + l + ": " + str(u))
 
-def loadHist(file="history.json"):
-	global hist
-	if (os.path.isfile(file)):
-		with open(file, "r") as f:
-			hist = json.loads(f.read())
-
-def saveHist(file="history.json"):
-	with open(file, "w") as f:
-		f.write(json.dumps(hist))
-
-def showHist():
-	for index, item in enumerate(hist):
+def hist():
+	for index, item in enumerate(history):
 		people = ""
 		for p in item["people"]:
 			people += p + ", "
 		print(str(index+1) + " | " + item["buyer"] + ": " + str(item["amount"]) + " -> " + people[:-2])
 
-def addTicket(buyer, amount, people):
-	global hist
-	hist.append(Ticket(buyer, amount, people))
+@argh.arg('buyer', type=str, help='The one who payes')
+@argh.arg('amount', type=int, help='The amount spent')
+@argh.arg('people', type=str, nargs='*', help='The ones who owe money')
+def add(buyer, amount, people):
+	global history
+	history.append({'buyer': buyer, 'amount': amount, 'people': people})
+	computeTicket(buyer, amount, people)
+
+@argh.arg('index', type=int, help='ID of ticket to remove (use "hist" command)')
+def rm(index):
+	global history
+	global debts
+	del history[args.index-1]
+	debts = dict()
+	for ticket in history:
+		computeTicket(ticket["buyer"], ticket["amount"], ticket["people"])
 
 
 if __name__ == '__main__':
-	parser = argparse.ArgumentParser()
-	parser.add_argument("command", type=str, help="The command to send")
-	parser.add_argument("-b", "--buyer", type=str, help="The person paying")
-	parser.add_argument("-a", "--amount", type=float, help="The amount payed")
-	parser.add_argument("-p", "--people", type=str, metavar='N', nargs='*', help="People sharing")
-	parser.add_argument("-c", "--include", help="Count buyer in people", action="store_true")
-	parser.add_argument("-i", "--index", type=int, help="Index of ticket to delete")
-	args = parser.parse_args()
-	
 	loadDebts()
 	loadHist()
-	if args.command == "add" and args.buyer and args.amount and args.people:
-		people=args.people
-		if args.include: 
-			people.append(args.buyer)
-		hist.append({"buyer": args.buyer, "amount": args.amount, "people": args.people})
-		computeTicket(args.buyer, args.amount, people)
-		saveDebts()
-		saveHist()
-	elif args.command == "show":
-		showDebts()
-	elif args.command == "hist":
-		showHist()
-	elif args.command == "del" and args.index:
-		del hist[args.index-1]
-		debts = dict()
-		for ticket in hist:
-			computeTicket(ticket["buyer"], ticket["amount"], ticket["people"])
-		saveDebts()
-		saveHist()
-	else:
-		print("Command not recognized")
+	parser = argh.ArghParser()
+	parser.add_commands([add, show, hist, rm])
+	parser.dispatch()
+	
+	saveDebts()
+	saveHist()
